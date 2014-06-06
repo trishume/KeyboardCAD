@@ -1,0 +1,27 @@
+resolution minimum: 0.1 # smoother quality
+
+MAGNET_RAD = 1
+
+SHAFT_HEIGHT = 2
+SHAFT_THICKNESS = 0.1
+SHAFT_GLIDE = 0.1
+
+PAD = 0.1
+
+def pad
+  translate(x: -0.0005, y: -0.0005, z: -0.0005) >
+  scale({x: 1.001, y: 1.001, z: 1.001}) > yield
+end
+
+
+def shaft
+  difference do
+    innerH = MAGNET_RAD + SHAFT_GLIDE
+    cylinder(h: SHAFT_HEIGHT, r: innerH + SHAFT_THICKNESS)
+    pad { cylinder(h: SHAFT_HEIGHT, r: innerH)}
+  end
+end
+
+defaults(facets: 100) do
+  shaft
+end
