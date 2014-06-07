@@ -1,21 +1,70 @@
+# MagLev Key prototypes
+# By Tristan Hume
+# Use the oozby ruby gem to generate an OpenSCAD file
+
 resolution minimum: 0.1 # smoother quality
 
-options = {
-  mag_rad: 10/2,
+DEMO_SPREAD = 20
+
+large_options = {
+  mag_rad: 12.7/2,
   mag_h: 4,
   mag_pad: 0.5,
   car_thickness: 1,
   car_h: 5,
-  nub_h: 2,
+  nub_h: 8,
   nub_rad: 4 / 2 + 0.5,
   cherry_thickness: 1,
   cherry_w: 4,
   cherry_h: 4,
   shaft_thickness: 1,
-  shaft_travel: 5,
+  shaft_travel: 6,
   shaft_glide: 0.2,
   cap_h: 1,
+  cap_hole_pad: 1,
+  keycap_enabled: true,
+  keycap_w: 15,
+  keycap_h: 2,
+  keycap_corner_rad: 0.0,
+  keycap_adpad: 1.1,
+  keycap_hpad: 1,
 }
+
+medium_options = large_options.merge({
+  mag_rad: 9.39/2,
+  # keycap_enabled: false,
+})
+
+small_options = medium_options.merge({
+  mag_rad: 6.35/2,
+})
+
+options = [
+  large_options,
+  medium_options,
+  small_options
+]
+
+# UTILIITY
+def pad
+  translate(x: -0.005, y: -0.005, z: -0.005) do
+    scale({x: 1.01, y: 1.01, z: 1.01}) { yield }
+  end
+end
+
+def center_box(w, h, options = {})
+  translate([-(w/2.0), -(w/2.0),0]) {
+    cube([w,w,h], options)
+  }
+end
+
+def center_box2(x, y, h)
+  translate(z: h/2.0) {
+    cube([x,y,h], {center: true})
+  }
+end
+
+# KEY
 
 def compute(opt)
   opt[:mag_inner]   = opt[:mag_rad] + opt[:mag_pad]
@@ -23,28 +72,31 @@ def compute(opt)
   opt[:shaft_inner] = opt[:car_w] + opt[:shaft_glide]
   opt[:shaft_w]     = opt[:shaft_inner] +opt[:shaft_thickness]
   opt[:shaft_h]     = opt[:car_h] + opt[:shaft_travel]
-  opt[:cap_hole]    = opt[:nub_rad] + opt[:shaft_glide]
-end
-
-def pad
-  translate(x: -0.005, y: -0.005, z: -0.005) do
-    scale({x: 1.01, y: 1.01, z: 1.01}) { yield }
-  end
-end
-
-def center_box(w, h)
-  translate([-(w/2), -(w/2),0]) >
-    cube([w,w,h])
-end
-
-def center_box2(x, y, h)
-  translate(z: h/2) >
-    cube([x,y,h], {center: true})
+  opt[:cap_hole]    = opt[:nub_rad] + opt[:cap_hole_pad]
+  opt[:shaft_tot_h] = opt[:shaft_h] + opt[:cap_h]
+  opt[:nub_h]       = opt[:shaft_tot_h] - opt[:car_h] - opt[:cherry_h]
+  opt[:keycap_nub_h]= opt[:cherry_h] + opt[:keycap_hpad]
+  opt[:keycap_tot_h]= opt[:keycap_nub_h] + opt[:keycap_h]
 end
 
 def cherry_cap_adapter(opt)
   center_box2(opt[:cherry_thickness], opt[:cherry_w], opt[:cherry_h])
   center_box2(opt[:cherry_w], opt[:cherry_thickness], opt[:cherry_h])
+end
+
+def keycap(opt)
+  difference do
+    cylinder(r: opt[:nub_rad], h: opt[:keycap_nub_h])
+    translate(z: -0.05) do
+      scale(x: opt[:keycap_adpad], y: opt[:keycap_adpad]) do
+        cherry_cap_adapter(opt)
+      end
+    end
+  end
+  translate(z: opt[:keycap_nub_h]) do
+    center_box(opt[:keycap_w], opt[:keycap_h],
+      {corner_radius: opt[:keycap_corner_rad]})
+  end
 end
 
 def shaft(opt)
@@ -53,11 +105,11 @@ def shaft(opt)
       center_box(opt[:shaft_w], opt[:shaft_h])
       pad {center_box(opt[:shaft_inner], opt[:shaft_h])}
     end
-    translate(z: opt[:shaft_h]) { cap(opt) }
+    translate(z: opt[:shaft_h]) { shaft_cap(opt) }
   end
 end
 
-def cap(opt)
+def shaft_cap(opt)
   difference do
     center_box(opt[:shaft_w], opt[:cap_h])
     pad { cylinder(h: opt[:cap_h], r: opt[:cap_hole]) }
@@ -78,20 +130,71 @@ end
 def nub(opt)
   union do
     cylinder(h: opt[:nub_h], r: opt[:nub_rad])
-    translate(z: opt[:nub_h]) { cherry_cap_adapter(opt)}
+    translate(z: opt[:nub_h]) do
+      cherry_cap_adapter(opt)
+    end
   end
 end
 
+# ARRANGEMENT
+
 def key(opt, up: false)
-  if up
-    translate(z: opt[:shaft_travel]) { car(opt) }
-  else
+  shift = up ? opt[:shaft_travel] : 0
+  translate(z: shift) do
     car(opt)
+    if opt[:keycap_enabled]
+      translate(z: opt[:car_h] + opt[:nub_h] + 0.1) do
+        keycap(opt)
+      end
+    end
   end
   shaft(opt)
 end
 
-compute(options)
-defaults(facets: 100) do
-  key(options, up: true)
+def demo(opt)
+  defaults(facets: 100) do
+    if opt[:keycap_enabled]
+      translate(x: -(DEMO_SPREAD)) do
+        key(opt, up: true)
+      end
+    end
+    shaft(opt)
+    translate(x: DEMO_SPREAD) do
+      car(opt)
+    end
+    if opt[:keycap_enabled]
+      translate(x: 2*DEMO_SPREAD) do
+        keycap(opt)
+      end
+    end
+  end
+end
+
+def print(opt)
+  defaults(facets: 100) do
+    translate(z: opt[:shaft_tot_h]) do
+      mirror([0,0,1]) do
+        shaft(opt)
+      end
+    end
+    translate(x: DEMO_SPREAD) do
+      car(opt)
+    end
+    if opt[:keycap_enabled]
+      translate(x: 2*DEMO_SPREAD, z: opt[:keycap_tot_h]) do
+        mirror([0,0,1]) do
+          keycap(opt)
+        end
+      end
+    end
+  end
+end
+
+
+options.each_with_index do |opt,i|
+  translate(y: i*20) do
+    compute(opt)
+    # print(opt)
+    demo(opt)
+  end
 end
