@@ -1,27 +1,97 @@
 resolution minimum: 0.1 # smoother quality
 
-MAGNET_RAD = 1
+options = {
+  mag_rad: 10/2,
+  mag_h: 4,
+  mag_pad: 0.5,
+  car_thickness: 1,
+  car_h: 5,
+  nub_h: 2,
+  nub_rad: 4 / 2 + 0.5,
+  cherry_thickness: 1,
+  cherry_w: 4,
+  cherry_h: 4,
+  shaft_thickness: 1,
+  shaft_travel: 5,
+  shaft_glide: 0.2,
+  cap_h: 1,
+}
 
-SHAFT_HEIGHT = 2
-SHAFT_THICKNESS = 0.1
-SHAFT_GLIDE = 0.1
-
-PAD = 0.1
-
-def pad
-  translate(x: -0.0005, y: -0.0005, z: -0.0005) >
-  scale({x: 1.001, y: 1.001, z: 1.001}) > yield
+def compute(opt)
+  opt[:mag_inner]   = opt[:mag_rad] + opt[:mag_pad]
+  opt[:car_w]       = opt[:mag_inner]*2 + opt[:car_thickness]
+  opt[:shaft_inner] = opt[:car_w] + opt[:shaft_glide]
+  opt[:shaft_w]     = opt[:shaft_inner] +opt[:shaft_thickness]
+  opt[:shaft_h]     = opt[:car_h] + opt[:shaft_travel]
+  opt[:cap_hole]    = opt[:nub_rad] + opt[:shaft_glide]
 end
 
-
-def shaft
-  difference do
-    innerH = MAGNET_RAD + SHAFT_GLIDE
-    cylinder(h: SHAFT_HEIGHT, r: innerH + SHAFT_THICKNESS)
-    pad { cylinder(h: SHAFT_HEIGHT, r: innerH)}
+def pad
+  translate(x: -0.005, y: -0.005, z: -0.005) do
+    scale({x: 1.01, y: 1.01, z: 1.01}) { yield }
   end
 end
 
+def center_box(w, h)
+  translate([-(w/2), -(w/2),0]) >
+    cube([w,w,h])
+end
+
+def center_box2(x, y, h)
+  translate(z: h/2) >
+    cube([x,y,h], {center: true})
+end
+
+def cherry_cap_adapter(opt)
+  center_box2(opt[:cherry_thickness], opt[:cherry_w], opt[:cherry_h])
+  center_box2(opt[:cherry_w], opt[:cherry_thickness], opt[:cherry_h])
+end
+
+def shaft(opt)
+  union do
+    difference do
+      center_box(opt[:shaft_w], opt[:shaft_h])
+      pad {center_box(opt[:shaft_inner], opt[:shaft_h])}
+    end
+    translate(z: opt[:shaft_h]) { cap(opt) }
+  end
+end
+
+def cap(opt)
+  difference do
+    center_box(opt[:shaft_w], opt[:cap_h])
+    pad { cylinder(h: opt[:cap_h], r: opt[:cap_hole]) }
+  end
+end
+
+def car(opt)
+  union do
+    difference do
+      center_box(opt[:car_w], opt[:car_h])
+      pad { cylinder(h: opt[:mag_h], r: opt[:mag_inner])}
+    end
+    translate(z: opt[:car_h]) >
+      nub(opt)
+  end
+end
+
+def nub(opt)
+  union do
+    cylinder(h: opt[:nub_h], r: opt[:nub_rad])
+    translate(z: opt[:nub_h]) { cherry_cap_adapter(opt)}
+  end
+end
+
+def key(opt, up: false)
+  if up
+    translate(z: opt[:shaft_travel]) { car(opt) }
+  else
+    car(opt)
+  end
+  shaft(opt)
+end
+
+compute(options)
 defaults(facets: 100) do
-  shaft
+  key(options, up: true)
 end
