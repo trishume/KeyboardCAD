@@ -4,23 +4,25 @@
 
 resolution minimum: 0.1 # smoother quality
 
-DEMO_SPREAD = 20
+DEMO_SPREAD = 25
 
 large_options = {
   mag_rad: 12.7/2,
   mag_h: 4,
   mag_pad: 0.5,
   car_thickness: 1,
-  car_h: 5,
+  car_h: 6,
   nub_h: 8,
   nub_rad: 4 / 2 + 0.5,
   cherry_thickness: 1,
   cherry_w: 4,
   cherry_h: 4,
-  shaft_thickness: 1,
+  shaft_thickness: 2,
   shaft_travel: 6,
-  shaft_glide: 0.2,
-  cap_h: 1,
+  shaft_glide: 0.3,
+  flange_w: 2.5,
+  flange_h: 2,
+  cap_h: 1.5,
   cap_hole_pad: 1,
   keycap_enabled: true,
   keycap_w: 15,
@@ -32,6 +34,9 @@ large_options = {
 
 medium_options = large_options.merge({
   mag_rad: 9.39/2,
+  mag_h: 3,
+  car_h: 5,
+  shaft_travel: 7
   # keycap_enabled: false,
 })
 
@@ -72,6 +77,7 @@ def compute(opt)
   opt[:shaft_inner] = opt[:car_w] + opt[:shaft_glide]
   opt[:shaft_w]     = opt[:shaft_inner] +opt[:shaft_thickness]
   opt[:shaft_h]     = opt[:car_h] + opt[:shaft_travel]
+  opt[:shaft_flange]= opt[:shaft_w] + opt[:flange_w]
   opt[:cap_hole]    = opt[:nub_rad] + opt[:cap_hole_pad]
   opt[:shaft_tot_h] = opt[:shaft_h] + opt[:cap_h]
   opt[:nub_h]       = opt[:shaft_tot_h] - opt[:car_h] - opt[:cherry_h]
@@ -102,7 +108,10 @@ end
 def shaft(opt)
   union do
     difference do
-      center_box(opt[:shaft_w], opt[:shaft_h])
+      union do
+        center_box(opt[:shaft_w], opt[:shaft_h])
+        center_box(opt[:shaft_flange], opt[:flange_h])
+      end
       pad {center_box(opt[:shaft_inner], opt[:shaft_h])}
     end
     translate(z: opt[:shaft_h]) { shaft_cap(opt) }
@@ -158,6 +167,7 @@ def demo(opt)
         key(opt, up: true)
       end
     end
+    # key(opt, up: false)
     shaft(opt)
     translate(x: DEMO_SPREAD) do
       car(opt)
@@ -192,9 +202,11 @@ end
 
 
 options.each_with_index do |opt,i|
-  translate(y: i*20) do
+  translate(y: i*DEMO_SPREAD) do
     compute(opt)
-    # print(opt)
-    demo(opt)
+    print(opt)
+    # demo(opt)
   end
 end
+
+puts "Max Height: #{options.first[:shaft_tot_h]}"
