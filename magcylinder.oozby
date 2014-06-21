@@ -1,0 +1,141 @@
+# MagLev Key prototypes
+# By Tristan Hume
+# Use the oozby ruby gem to generate an OpenSCAD file
+
+resolution minimum: 0.1 # smoother quality
+
+DEMO_SPREAD = 20
+MODE = :print
+
+medium_options = {
+  mag_rad: 9.39/2,
+  mag_h: 4,
+  shaft_thickness: 1.5,
+  shaft_glide: 0.5,
+  shaft_h: 20,
+}
+
+fancy_options = medium_options.merge({
+  car_cross: true,
+  shaft_cap: true,
+  cap_h: 2,
+  cap_cross_pad: 0.5,
+  cross_thickness: 2,
+  crosscar_pad: 0.3,
+  crosscar_base: 2,
+})
+
+options = [medium_options, fancy_options]
+
+def vpad
+  translate(z: -0.01) do
+    scale(z: 1.01) do
+      yield
+    end
+  end
+end
+
+def center_box2(x, y, h)
+  translate(z: h/2.0) {
+    cube([x,y,h], {center: true})
+  }
+end
+
+def cylindrical_tube(r, h, thickness, inner: true)
+  inner_r = r - (inner ? 0 : thickness)
+  difference do
+    cylinder(r: inner_r + thickness, h: h)
+    vpad {cylinder(r: inner_r, h: h)}
+  end
+end
+
+def cross(w, h, size)
+  union do
+    center_box2(size, w, h)
+    center_box2(w, size, h)
+  end
+end
+
+def compute(opt)
+  opt[:car_thickness] = opt[:shaft_thickness]
+  opt[:car_outer] = opt[:mag_rad]
+  opt[:car_h] = opt[:shaft_h]
+  opt[:shaft_inner] = opt[:car_outer] + opt[:shaft_glide]
+  opt[:shaft_tot_h] = opt[:shaft_h]
+  opt[:cap_r] = opt[:shaft_inner] + opt[:shaft_thickness]
+
+  if opt[:car_cross]
+    opt[:shaft_tot_h] += opt[:cap_h]
+    opt[:cross_w] = opt[:car_outer]*2
+    opt[:cap_cross_w] = opt[:cross_w] + opt[:cap_cross_pad]
+    opt[:cap_cross_thick] = opt[:cross_thickness] + opt[:cap_cross_pad]
+    opt[:cross_h] = opt[:shaft_tot_h] - opt[:mag_h]
+    opt[:crosscar_w] = opt[:cross_w] - opt[:crosscar_pad]
+  end
+end
+
+def shaft(opt)
+  union do
+    cylindrical_tube(opt[:shaft_inner], opt[:shaft_h], opt[:shaft_thickness])
+    cap(opt) if opt[:shaft_cap]
+  end
+end
+
+def cap(opt)
+  translate(z: opt[:shaft_h]) do
+    difference do
+      cylinder(r: opt[:cap_r], h: opt[:cap_h])
+      vpad{ cross(opt[:cap_cross_w], opt[:cross_h], opt[:cap_cross_thick]) }
+    end
+  end
+end
+
+def car(opt)
+  if opt[:car_cross]
+    union do
+      cylinder(r: opt[:car_outer], h: opt[:crosscar_base])
+      cross(opt[:crosscar_w], opt[:cross_h], opt[:cross_thickness])
+    end
+  else
+    cylindrical_tube(opt[:car_outer], opt[:car_h], opt[:car_thickness], inner: false)
+  end
+end
+
+def demo(opt)
+  defaults(facets: 100) do
+    shaft(opt)
+    translate(x: DEMO_SPREAD) do
+      car(opt)
+    end
+    translate(x: -DEMO_SPREAD) do
+      shaft(opt)
+      translate(z: 5) {car(opt)}
+    end
+  end
+end
+
+def print(opt)
+  defaults(facets: 100) do
+    translate(z: opt[:shaft_tot_h]) do
+      mirror([0,0,1]) do
+        shaft(opt)
+      end
+    end
+    translate(x: DEMO_SPREAD) do
+      car(opt)
+    end
+  end
+end
+
+
+options.each_with_index do |opt,i|
+  translate(y: (-1-i)*DEMO_SPREAD) do
+    compute(opt)
+    if MODE == :print
+      print(opt)
+    elsif MODE == :demo
+      demo(opt)
+    end
+    puts "height: #{opt[:shaft_h]}"
+  end
+end

@@ -4,14 +4,14 @@
 
 resolution minimum: 0.1 # smoother quality
 
-DEMO_SPREAD = 25
+DEMO_SPREAD = 20
 
 large_options = {
   mag_rad: 12.7/2,
   mag_h: 4,
   mag_pad: 0.5,
-  car_thickness: 1,
-  car_h: 6,
+  car_thickness: 2,
+  car_h: 8,
   nub_h: 8,
   nub_rad: 4 / 2 + 0.5,
   cherry_thickness: 1,
@@ -19,12 +19,13 @@ large_options = {
   cherry_h: 4,
   shaft_thickness: 2,
   shaft_travel: 6,
-  shaft_glide: 0.3,
+  shaft_glide: 1,
+  flange_enabled: false,
   flange_w: 2.5,
   flange_h: 2,
   cap_h: 1.5,
   cap_hole_pad: 1,
-  keycap_enabled: true,
+  keycap_enabled: false,
   keycap_w: 15,
   keycap_h: 2,
   keycap_corner_rad: 0.0,
@@ -34,9 +35,6 @@ large_options = {
 
 medium_options = large_options.merge({
   mag_rad: 9.39/2,
-  mag_h: 3,
-  car_h: 5,
-  shaft_travel: 7
   # keycap_enabled: false,
 })
 
@@ -45,9 +43,9 @@ small_options = medium_options.merge({
 })
 
 options = [
-  large_options,
+  # large_options,
   medium_options,
-  small_options
+  # small_options
 ]
 
 # UTILIITY
@@ -110,7 +108,7 @@ def shaft(opt)
     difference do
       union do
         center_box(opt[:shaft_w], opt[:shaft_h])
-        center_box(opt[:shaft_flange], opt[:flange_h])
+        center_box(opt[:shaft_flange], opt[:flange_h]) if opt[:flange_enabled]
       end
       pad {center_box(opt[:shaft_inner], opt[:shaft_h])}
     end
@@ -167,8 +165,8 @@ def demo(opt)
         key(opt, up: true)
       end
     end
-    # key(opt, up: false)
-    shaft(opt)
+    key(opt, up: false)
+    # shaft(opt)
     translate(x: DEMO_SPREAD) do
       car(opt)
     end
@@ -210,3 +208,6 @@ options.each_with_index do |opt,i|
 end
 
 puts "Max Height: #{options.first[:shaft_tot_h]}"
+
+require "magcylinder.oozby"
+
